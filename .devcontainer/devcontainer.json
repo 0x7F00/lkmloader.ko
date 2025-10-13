@@ -1,0 +1,18 @@
+{
+  "name": "ddk-module-dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "ubuntu",
+  "postCreateCommand": "echo Devcontainer ready",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.vscode-github-actions",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-azuretools.vscode-containers",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  }
+}
