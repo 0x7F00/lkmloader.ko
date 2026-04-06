@@ -188,7 +188,7 @@ static int __nocfi patch_module(void *buf, size_t len) {
         pr_err("shoff end > len: %zu > %zu\n", shend_off, len);
         return -EINVAL;
     }
-    Elf64_Shdr *sh = buf + eh->e_shoff, *shend = (void *) sh + shend_off;
+    Elf64_Shdr *sh = buf + eh->e_shoff, *shend = buf + shend_off;
     Elf64_Sym *symtab = NULL, *symtab_end = NULL;
     char *strtab = NULL, *strtab_end = NULL;
     int idx = 0, symstr_idx = -1;
@@ -207,7 +207,7 @@ static int __nocfi patch_module(void *buf, size_t len) {
                 continue;
             }
             symtab = buf + sh->sh_offset;
-            symtab_end = symtab + sh->sh_size;
+            symtab_end = (void *) symtab + sh->sh_size;
             symstr_idx = sh->sh_link;
             pr_info("symtab at section %d (str=%d)\n", idx, symstr_idx);
         } else if (sh->sh_type == SHT_STRTAB && symstr_idx == idx && !strtab) {
@@ -234,11 +234,14 @@ static int __nocfi patch_module(void *buf, size_t len) {
 
     for (s = symtab; s < symtab_end; s++, idx++) {
         if (s->st_shndx == SHN_UNDEF) {
-            if (s->st_name >= len) {
+            char *name = strtab + s->st_name;
+            if (name >= strtab_end || name < strtab) {
                 pr_err("invalid sym %d name > len", idx);
                 continue;
             }
-            char *name = strtab + s->st_name;
+            if (!*name) {
+                continue;
+            }
             unsigned long sym = resolve_kernel_symbol(name);
             if (!sym) {
                 pr_warn("not found: sym %d name %s\n", idx, name);
@@ -253,7 +256,7 @@ static int __nocfi patch_module(void *buf, size_t len) {
     return ret;
 }
 
-static long __nocfi load_module() {
+static long __nocfi load_module(const char __user * params) {
     int (*load_module_fn)(struct load_info *info, const char __user *uargs, int flags)
         = kallsyms_lookup_name_fn("load_module");
     ssize_t (*kernel_read_file_fn)(struct file *file, loff_t offset, void **buf,
@@ -301,7 +304,7 @@ static long __nocfi load_module() {
     ret = patch_module(buf, len);
     pr_info("patch_module result: %ld\n", ret);
 
-    ret = load_module_fn(&info, NULL, 0);
+    ret = load_module_fn(&info, params, 0);
     pr_info("load_module result: %ld\n", ret);
 
 out_close_file:
@@ -311,21 +314,28 @@ out_close_file:
 }
 
 unsigned long __nocfi do_in_task_work_c() {
-    long ret = load_module();
-    if (!ret) {
-        pr_err("load_module failed: %ld\n", ret);
+    struct pt_regs *regs = current_pt_regs();
+    char __user *params = regs->sp - 1;
+    long ret;
+    ret = copy_to_user(params, "", sizeof(""));
+    if (ret != 0) {
+        pr_err("create user params: %ld\n", ret);
     } else {
-        pr_info("load_module success\n");
+        ret = load_module(params);
+        if (ret) {
+            pr_err("load_module failed: %ld\n", ret);
+        } else {
+            pr_info("load_module success\n");
+        }
     }
-
 
     unsigned long del_mod = syscall_table[__NR_delete_module];
     pr_info("del_mod: 0x%lx\n", del_mod);
     if (!del_mod) {
         pr_err("could not del self\n");
+        regs->regs[0] = -ENOSYS;
         return 0;
     }
-    struct pt_regs *regs = current_pt_regs();
     memcpy(&tmp_regs, regs, sizeof(struct pt_regs));
     tmp_regs.regs[0] = tmp_regs.sp - sizeof("lkmloader");
     tmp_regs.regs[1] = 0;
@@ -341,11 +351,15 @@ void __naked do_in_task_work(struct callback_head *head) {
     asm(
         "stp x29, x30, [sp, #-0x10]!;\n"
         "bl do_in_task_work_c;\n"
+        "cmp x0, #0;\n"
+        "b.eq failed;\n"
         "mov x17, x0;\n"
         ".extern tmp_regs;\n"
         "ldr x0, =tmp_regs;\n"
         "ldp x29, x30, [sp], #0x10;\n"
         "br x17;\n"
+        "failed:\n"
+        "ret;\n"
     );
 }
 
