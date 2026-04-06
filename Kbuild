@@ -8,6 +8,9 @@ $(info -- MDIR: $(M))
 $(info -- src: $(src))
 $(info -- obj: $(obj))
 
+lkmloader-objs := loader.o
+obj-m := lkmloader.o
+
 ccflags-y += -Wno-declaration-after-statement
 ccflags-y += -Wno-unused-variable
 ccflags-y += -Wno-int-conversion
