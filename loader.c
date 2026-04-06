@@ -378,10 +378,6 @@ int __init __nocfi ko_init(void) {
 
     char buf[256];
     unsigned long addr, sz, found = 0, sprintf_addr;
-    unsigned long aaddr = (unsigned long) &sprint_symbol;
-    pr_info("sprint_symbol: 0x%lx [%pSb]\n", aaddr, (void *) aaddr);
-    aaddr = (unsigned long) &ko_init;
-    pr_info("ko_init: 0x%lx [%pSb]\n", aaddr, (void *) aaddr);
 
     asm("ldr %0, =sprint_symbol":"=r"(sprintf_addr));
     char *s;
@@ -473,12 +469,7 @@ int __init __nocfi ko_init(void) {
     }
     
     kallsyms_lookup_name_fn = (void*) found;
-    unsigned long a = kallsyms_lookup_name_fn("kallsyms_lookup_name");
-    pr_info("kallsyms_lookup_name find itself: 0x%lx\n", a);
-    a = kallsyms_lookup_name_fn("_text");
-    pr_info("kallsyms_lookup_name _text: 0x%lx\n", a);
-    a = kallsyms_lookup_name_fn("_end");
-    pr_info("kallsyms_lookup_name _end: 0x%lx\n", a);
+    unsigned long a;
     a = kallsyms_lookup_name_fn("task_work_add");
     pr_info("kallsyms_lookup_name task_work_add: 0x%lx\n", a);
     int (*task_work_add_fn)(struct task_struct *task, struct callback_head *twork,
