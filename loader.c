@@ -128,9 +128,17 @@ static int kallsyms_on_each_match_symbol_cb(void *data, unsigned long addr) {
 }
 #endif
 
-int (*kallsyms_on_each_symbol_fn)(int (*fn)(void *, const char *, unsigned long),
+int (*kallsyms_on_each_symbol_fn)(int (*fn)(void *, const char *, 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 0)
+    struct module *,
+#endif
+    unsigned long),
     void *data);
-static int kallsyms_on_each_symbol_cb(void *data, const char *name, unsigned long addr) {
+static int kallsyms_on_each_symbol_cb(void *data, const char *name, 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 0)
+    struct module *unused_mod,
+#endif
+    unsigned long addr) {
     struct lookup_symbol_context *ctx = data;
     if (strcmp(name, ctx->sym_name) == 0) {
         *(unsigned long *) data = addr;
