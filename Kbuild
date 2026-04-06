@@ -18,3 +18,4 @@ ccflags-y += -Wno-unused-result
 ccflags-y += -Wno-unused-function
 ccflags-y += -Wno-builtin-macro-redefined
 ccflags-y += -Wno-strict-prototypes
+ccflags-y += -I$(srctree)
