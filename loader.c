@@ -289,7 +289,7 @@ static long __nocfi load_module() {
         return PTR_ERR(f);
     }
 
-	len = kernel_read_file(f, 0, &buf, INT_MAX, NULL, READING_MODULE);
+	len = kernel_read_file_fn(f, 0, &buf, INT_MAX, NULL, READING_MODULE);
     if (len < 0) {
         pr_err("read module failed: %d\n", len);
         ret = len;
