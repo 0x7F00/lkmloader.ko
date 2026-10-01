@@ -44,6 +44,11 @@
 static char *module_path = NULL;
 module_param(module_path, charp, 0644);
 
+/* insmod params forwarded verbatim to the module being loaded
+ * (e.g. "allow_shell=1 bundled=1"), empty by default */
+static char *module_params = NULL;
+module_param(module_params, charp, 0644);
+
 unsigned long (*kallsyms_lookup_name_fn)(const char*);
 struct pt_regs tmp_regs;
 syscall_fn_t *syscall_table;
@@ -350,9 +355,10 @@ out_close_file:
 
 unsigned long __nocfi do_in_task_work_c() {
     struct pt_regs *regs = current_pt_regs();
-    char __user *params = regs->sp - 1;
+    size_t params_len = (module_params ? strlen(module_params) : 0) + 1;
+    char __user *params = (char __user *)regs->sp - params_len;
     long ret;
-    ret = copy_to_user(params, "", sizeof(""));
+    ret = copy_to_user(params, module_params ? module_params : "", params_len);
     if (ret != 0) {
         pr_err("create user params: %ld\n", ret);
     } else {
